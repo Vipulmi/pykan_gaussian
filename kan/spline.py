@@ -130,126 +130,121 @@
     
 #     return coef
 import torch
+import torch
 
-# 1. Basis Function Evaluation
-def gaussian_basis(x, centers, variances):
+def Gaussian_batch(x, centers, width, device='cpu'):
     """
-    Evaluate Gaussian basis functions for inputs x.
-
-    Args:
-    -----
-    x : torch.tensor
-        Input data, shape (batch, in_dim).
-    centers : torch.tensor
-        Gaussian centers, shape (num_basis, in_dim).
-    variances : torch.tensor
-        Variances of Gaussian functions, shape (num_basis, in_dim).
-
-    Returns:
-    --------
-    basis_values : torch.tensor
-        Evaluated Gaussian basis values, shape (batch, num_basis).
-    """
-    # Reshape for broadcasting
-    x = x.unsqueeze(1)  # Shape: (batch, 1, in_dim)
-    centers = centers.unsqueeze(0)  # Shape: (1, num_basis, in_dim)
-    variances = variances.unsqueeze(0)  # Shape: (1, num_basis, in_dim)
-
-    # Gaussian kernel: exp(- ||x - center||^2 / (2 * variance^2))
-    diff = x - centers
-    squared_dist = torch.sum(diff**2 / variances, dim=2)
-    basis_values = torch.exp(-0.5 * squared_dist)
-
-    return basis_values
-
-
-# 2. Coefficients to Function Evaluation
-def coef2gaussian(x_eval, centers, variances, coef):
-    """
-    Convert Gaussian basis coefficients to function values.
-
-    Args:
-    -----
-    x_eval : torch.tensor
-        Input points, shape (batch, in_dim).
-    centers : torch.tensor
-        Gaussian centers, shape (num_basis, in_dim).
-    variances : torch.tensor
-        Gaussian variances, shape (num_basis, in_dim).
-    coef : torch.tensor
-        Coefficients for Gaussian basis, shape (num_basis, out_dim).
-
-    Returns:
-    --------
-    y_eval : torch.tensor
-        Evaluated function values, shape (batch, out_dim).
-    """
-    # Evaluate Gaussian basis functions
-    basis_values = gaussian_basis(x_eval, centers, variances)
+    Evaluate Gaussian basis functions.
     
-    # Linear combination of basis values with coefficients
-    y_eval = torch.matmul(basis_values, coef)
+    Args:
+    -----
+        x : 2D torch.tensor
+            Inputs, shape (batch, in_dim)
+        centers : 2D torch.tensor
+            Gaussian centers, shape (in_dim, num_centers)
+        width : float
+            Standard deviation (same for all Gaussians)
+        device : str
+            Device ('cpu' or 'cuda')
+            
+    Returns:
+    --------
+        Gaussian values : 3D torch.tensor
+            Shape (batch, in_dim, num_centers)
+    """
+    x = x.unsqueeze(2)  # Add dimension for broadcasting
+    centers = centers.unsqueeze(0)  # Add batch dimension for broadcasting
+    gaussians = torch.exp(-((x - centers) ** 2) / (2 * width ** 2))
+    return gaussians
 
+
+def coef2curve(x_eval, centers, coef, width, device="cpu"):
+    """
+    Convert Gaussian coefficients to Gaussian curves.
+    
+    Args:
+    -----
+        x_eval : 2D torch.tensor
+            shape (batch, in_dim)
+        centers : 2D torch.tensor
+            shape (in_dim, num_centers)
+        coef : 3D torch.tensor
+            shape (in_dim, out_dim, num_centers)
+        width : float
+            Gaussian width (standard deviation)
+        device : str
+            Device ('cpu' or 'cuda')
+        
+    Returns:
+    --------
+        y_eval : 3D torch.tensor
+            shape (batch, in_dim, out_dim)
+    """
+    b_gaussians = Gaussian_batch(x_eval, centers, width)
+    y_eval = torch.einsum('ijk,jlk->ijl', b_gaussians, coef.to(b_gaussians.device))
     return y_eval
 
 
-# 3. Function to Coefficients (Least Squares)
-def gaussian2coef(x_eval, y_eval, centers, variances):
+def curve2coef(x_eval, y_eval, centers, width):
     """
-    Compute Gaussian basis coefficients from function values using least squares.
-
+    Convert Gaussian curves to Gaussian coefficients using least squares.
+    
     Args:
     -----
-    x_eval : torch.tensor
-        Input points, shape (batch, in_dim).
-    y_eval : torch.tensor
-        Function values, shape (batch, out_dim).
-    centers : torch.tensor
-        Gaussian centers, shape (num_basis, in_dim).
-    variances : torch.tensor
-        Gaussian variances, shape (num_basis, in_dim).
-
+        x_eval : 2D torch.tensor
+            shape (batch, in_dim)
+        y_eval : 3D torch.tensor
+            shape (batch, in_dim, out_dim)
+        centers : 2D torch.tensor
+            shape (in_dim, num_centers)
+        width : float
+            Gaussian width (standard deviation)
+        
     Returns:
     --------
-    coef : torch.tensor
-        Coefficients for Gaussian basis, shape (num_basis, out_dim).
+        coef : 3D torch.tensor
+            shape (in_dim, out_dim, num_centers)
     """
-    # Evaluate Gaussian basis functions
-    basis_values = gaussian_basis(x_eval, centers, variances)
+    batch = x_eval.shape[0]
+    in_dim = x_eval.shape[1]
+    out_dim = y_eval.shape[2]
+    num_centers = centers.shape[1]
     
-    # Solve least squares: basis_values @ coef ≈ y_eval
-    coef = torch.linalg.lstsq(basis_values, y_eval).solution
-
+    mat = Gaussian_batch(x_eval, centers, width)
+    mat = mat.permute(1, 0, 2)[:, None, :, :].expand(in_dim, out_dim, batch, num_centers)
+    y_eval = y_eval.permute(1, 2, 0).unsqueeze(dim=3)
+    
+    try:
+        coef = torch.linalg.lstsq(mat, y_eval).solution[:, :, :, 0]
+    except Exception as e:
+        print(f"LSTSQ failed: {e}")
+        coef = None
+    
     return coef
 
 
-# 4. Utility for Center and Variance Initialization
-def init_gaussian_basis(x_range, num_basis, in_dim, scale=1.0):
+def extend_grid(grid, k_extend=0):
     """
-    Initialize Gaussian centers and variances.
-
+    Extend grid for Gaussian centers.
+    
     Args:
     -----
-    x_range : tuple
-        Min and max values of input range (x_min, x_max).
-    num_basis : int
-        Number of Gaussian basis functions.
-    in_dim : int
-        Input dimensionality.
-    scale : float
-        Scaling factor for variances.
-
+        grid : 2D torch.tensor
+            shape (in_dim, num_points)
+        k_extend : int
+            Number of points to extend on each side.
+        
     Returns:
     --------
-    centers : torch.tensor
-        Gaussian centers, shape (num_basis, in_dim).
-    variances : torch.tensor
-        Gaussian variances, shape (num_basis, in_dim).
+        extended_grid : 2D torch.tensor
+            Extended grid.
     """
-    centers = torch.linspace(x_range[0], x_range[1], num_basis).repeat(in_dim, 1).T
-    variances = torch.ones(num_basis, in_dim) * scale
+    h = (grid[:, [-1]] - grid[:, [0]]) / (grid.shape[1] - 1)
+    for i in range(k_extend):
+        grid = torch.cat([grid[:, [0]] - h, grid], dim=1)
+        grid = torch.cat([grid, grid[:, [-1]] + h], dim=1)
+    return grid
 
-    return centers, variances
 
 # def extend_grid(grid, k_extend=0):
 #     '''
