@@ -131,15 +131,15 @@
 #     return coef
 import torch
 
-def Gaussian_batch(x, centers, width, device='cpu'):
+def Gaussian_batch(x, grid, k = None, device='cpu'):
     """
-    Evaluate Gaussian basis functions.
+    Evaluate Gaussian basis functions using the provided grid.
     
     Args:
     -----
         x : 2D torch.tensor
             Inputs, shape (batch, in_dim)
-        centers : 2D torch.tensor
+        grid : 2D torch.tensor
             Gaussian centers, shape (in_dim, num_centers)
         width : float
             Standard deviation (same for all Gaussians)
@@ -151,13 +151,21 @@ def Gaussian_batch(x, centers, width, device='cpu'):
         Gaussian values : 3D torch.tensor
             Shape (batch, in_dim, num_centers)
     """
+    # Derive centers and width from grid
+    centers = grid
+    width = grid[1] - grid[0]  # Assuming uniform spacing for width
+
+    # Ensure proper tensor dimensions for broadcasting
     x = x.unsqueeze(2)  # Add dimension for broadcasting
     centers = centers.unsqueeze(0)  # Add batch dimension for broadcasting
+    
+    # Compute the Gaussian function
     gaussians = torch.exp(-((x - centers) ** 2) / (2 * width ** 2))
+    
     return gaussians
 
 
-def coef2curve(x_eval, grid, coef, k, device="cpu"):
+def coef2curve(x_eval, grid, coef, k = None, device="cpu"):
     """
     Calculate the curve based on coefficients and a Gaussian basis, where centers and width are derived from the grid.
     
@@ -185,7 +193,7 @@ def coef2curve(x_eval, grid, coef, k, device="cpu"):
     return result
 
 
-def curve2coef(x_eval, y_eval, grid, k):
+def curve2coef(x_eval, y_eval, grid, k = None):
     """
     Convert Gaussian curves to Gaussian coefficients using least squares.
 
