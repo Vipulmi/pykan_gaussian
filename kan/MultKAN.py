@@ -17,6 +17,7 @@ from sympy.printing import latex
 from sympy import *
 import sympy
 import yaml
+# from .spline import curve2coef
 from .spline import curve2coef
 from .utils import SYMBOLIC_LIB
 from .hypothesis import plot_tree
