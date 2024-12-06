@@ -394,7 +394,10 @@ def expr2kan(input_variables, expr, grid=5, k=3, auto_save=False):
     width[0][0] = len(input_variables)
 
     # allow pass in other parameters (probably as a dictionary) in sf2kan, including grid k etc.
-    model = MultKAN(width=width, mult_arity=mult_arities, grid=grid, k=k, auto_save=auto_save)
+# ///////////////////////////////////
+    # model = MultKAN(width=width, mult_arity=mult_arities, grid=grid, k=k, auto_save=auto_save)
+    model = MultKAN(width=width, num_centers=num_centers, sigma=sigma, device=device)
+# //////////////////////////////////
     
     # clean the graph
     for l in range(model.depth):
