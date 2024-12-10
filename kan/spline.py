@@ -26,15 +26,12 @@ def B_batch(x, grid, k=0, extend=True, device='cpu'):
     x = x.unsqueeze(dim=2)
     grid = grid.unsqueeze(dim=0)
     
-    # Replace B-spline evaluation with Gaussian function
-    sigma = k * 0.1  # You can adjust this scaling factor as necessary.
+    sigma = k * 0.1 
     mu = grid  # Center of Gaussians is at the grid points
     value = torch.exp(-(x - mu)**2 / (2 * sigma**2))
     
-    # Handle boundary cases (if extend is True)
     if extend:
-        value = torch.cat([value, value], dim=-1)  # Example of extending
-    # in case grid is degenerate
+        value = torch.cat([value, value], dim=-1) 
     value = torch.nan_to_num(value)
     return value
 
@@ -115,8 +112,8 @@ def coef2curve(x_eval, grid, coef, k, device="cpu"):
     '''
     
     b_splines = B_batch(x_eval, grid, k=k)
-    print("b_splines shape:", b_splines.shape)
-    print("coef shape:", coef.shape)
+    # print("b_splines shape:", b_splines.shape)
+    # print("coef shape:", coef.shape)
     y_eval = torch.einsum('ijk,jlk->ijl', b_splines, coef.to(b_splines.device))
     
     return y_eval
@@ -148,7 +145,8 @@ def curve2coef(x_eval, y_eval, grid, k):
     batch = x_eval.shape[0]
     in_dim = x_eval.shape[1]
     out_dim = y_eval.shape[2]
-    n_coef = grid.shape[1] - k - 1
+    # n_coef = grid.shape[1] - k - 1
+    n_coef = grid.shape[1]*2
     mat = B_batch(x_eval, grid, k)
     mat = mat.permute(1,0,2)[:,None,:,:].expand(in_dim, out_dim, batch, n_coef)
     #print('mat', mat.shape)
