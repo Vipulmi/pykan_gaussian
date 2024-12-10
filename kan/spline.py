@@ -65,6 +65,8 @@ def coef2curve(x_eval, grid, coef, k, device="cpu"):
     '''
     
     b_splines = B_batch(x_eval, grid, k=k)
+    print("b_splines shape:", b_splines.shape)
+    print("coef shape:", coef.shape)
     y_eval = torch.einsum('ijk,jlk->ijl', b_splines, coef.to(b_splines.device))
     
     return y_eval
