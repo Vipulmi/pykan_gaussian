@@ -1,91 +1,91 @@
-# import torch
-
-# def B_batch(x, grid, k=0, extend=True, device='cpu'):
-#     '''
-#     Evaluate x on Gaussian bases instead of B-splines
-    
-#     Args:
-#     -----
-#         x : 2D torch.tensor
-#             Inputs, shape (number of splines, number of samples)
-#         grid : 2D torch.tensor
-#             Grids, shape (number of splines, number of grid points)
-#         k : int
-#             Gaussian width control (similar to B-spline order)
-#         extend : bool
-#             If True, k points are extended on both ends. If False, no extension (zero boundary condition). Default: True
-#         device : str
-#             Device to run the operations on.
-    
-#     Returns:
-#     --------
-#         gaussian values : 3D torch.tensor
-#             Shape (batch, in_dim, G+k). G: the number of grid intervals, k: parameter for Gaussian width.
-#     '''
-    
-#     x = x.unsqueeze(dim=2)
-#     grid = grid.unsqueeze(dim=0)
-    
-#     # Replace B-spline evaluation with Gaussian function
-#     sigma = k * 0.1  # You can adjust this scaling factor as necessary.
-#     mu = grid  # Center of Gaussians is at the grid points
-#     value = torch.exp(-(x - mu)**2 / (2 * sigma**2))
-    
-#     # Handle boundary cases (if extend is True)
-#     if extend:
-#         value = torch.cat([value, value], dim=-1)  # Example of extending
-#     # in case grid is degenerate
-#     value = torch.nan_to_num(value)
-#     return value
-
-
 import torch
-
 
 def B_batch(x, grid, k=0, extend=True, device='cpu'):
     '''
-    evaludate x on B-spline bases
+    Evaluate x on Gaussian bases instead of B-splines
     
     Args:
     -----
         x : 2D torch.tensor
-            inputs, shape (number of splines, number of samples)
+            Inputs, shape (number of splines, number of samples)
         grid : 2D torch.tensor
-            grids, shape (number of splines, number of grid points)
+            Grids, shape (number of splines, number of grid points)
         k : int
-            the piecewise polynomial order of splines.
+            Gaussian width control (similar to B-spline order)
         extend : bool
             If True, k points are extended on both ends. If False, no extension (zero boundary condition). Default: True
         device : str
-            devicde
+            Device to run the operations on.
     
     Returns:
     --------
-        spline values : 3D torch.tensor
-            shape (batch, in_dim, G+k). G: the number of grid intervals, k: spline order.
-      
-    Example
-    -------
-    >>> from kan.spline import B_batch
-    >>> x = torch.rand(100,2)
-    >>> grid = torch.linspace(-1,1,steps=11)[None, :].expand(2, 11)
-    >>> B_batch(x, grid, k=3).shape
+        gaussian values : 3D torch.tensor
+            Shape (batch, in_dim, G+k). G: the number of grid intervals, k: parameter for Gaussian width.
     '''
     
     x = x.unsqueeze(dim=2)
     grid = grid.unsqueeze(dim=0)
     
-    if k == 0:
-        value = (x >= grid[:, :, :-1]) * (x < grid[:, :, 1:])
-    else:
-        B_km1 = B_batch(x[:,:,0], grid=grid[0], k=k - 1)
-        
-        value = (x - grid[:, :, :-(k + 1)]) / (grid[:, :, k:-1] - grid[:, :, :-(k + 1)]) * B_km1[:, :, :-1] + (
-                    grid[:, :, k + 1:] - x) / (grid[:, :, k + 1:] - grid[:, :, 1:(-k)]) * B_km1[:, :, 1:]
+    # Replace B-spline evaluation with Gaussian function
+    sigma = k * 0.1  # You can adjust this scaling factor as necessary.
+    mu = grid  # Center of Gaussians is at the grid points
+    value = torch.exp(-(x - mu)**2 / (2 * sigma**2))
     
+    # Handle boundary cases (if extend is True)
+    if extend:
+        value = torch.cat([value, value], dim=-1)  # Example of extending
     # in case grid is degenerate
     value = torch.nan_to_num(value)
     return value
+
+
+# import torch
+
+
+# def B_batch(x, grid, k=0, extend=True, device='cpu'):
+#     '''
+#     evaludate x on B-spline bases
+    
+#     Args:
+#     -----
+#         x : 2D torch.tensor
+#             inputs, shape (number of splines, number of samples)
+#         grid : 2D torch.tensor
+#             grids, shape (number of splines, number of grid points)
+#         k : int
+#             the piecewise polynomial order of splines.
+#         extend : bool
+#             If True, k points are extended on both ends. If False, no extension (zero boundary condition). Default: True
+#         device : str
+#             devicde
+    
+#     Returns:
+#     --------
+#         spline values : 3D torch.tensor
+#             shape (batch, in_dim, G+k). G: the number of grid intervals, k: spline order.
+      
+#     Example
+#     -------
+#     >>> from kan.spline import B_batch
+#     >>> x = torch.rand(100,2)
+#     >>> grid = torch.linspace(-1,1,steps=11)[None, :].expand(2, 11)
+#     >>> B_batch(x, grid, k=3).shape
+#     '''
+    
+#     x = x.unsqueeze(dim=2)
+#     grid = grid.unsqueeze(dim=0)
+    
+#     if k == 0:
+#         value = (x >= grid[:, :, :-1]) * (x < grid[:, :, 1:])
+#     else:
+#         B_km1 = B_batch(x[:,:,0], grid=grid[0], k=k - 1)
+        
+#         value = (x - grid[:, :, :-(k + 1)]) / (grid[:, :, k:-1] - grid[:, :, :-(k + 1)]) * B_km1[:, :, :-1] + (
+#                     grid[:, :, k + 1:] - x) / (grid[:, :, k + 1:] - grid[:, :, 1:(-k)]) * B_km1[:, :, 1:]
+    
+#     # in case grid is degenerate
+#     value = torch.nan_to_num(value)
+#     return value
 
 
 
